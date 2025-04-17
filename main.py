@@ -10,7 +10,6 @@ import time
 random.seed(42)
 np.random.seed(42)
 
-
 # ------------------------------
 # Genetic Algorithm Initialization for Facility Location
 # ------------------------------
@@ -89,9 +88,8 @@ def generate_initial_solution_ga(I, J, T, q_t, P_0, pop_size=50, generations=100
 
     return decode_solution(best_ind, J, T, I, q_t)
 
-
 # ------------------------------
-# Step 2: Compute Wasserstein Distance Constraint
+#  Compute Wasserstein Distance Constraint
 # ------------------------------
 def wasserstein_distance(P, P_k):
     """
@@ -110,7 +108,9 @@ def wasserstein_distance(P, P_k):
     ])
 
 
-
+# ------------------------------
+#  Solve cJKO Wasserstein-constrained update
+# ------------------------------
 def solve_cjko(P_k, eps, c, d, rho, Y, S, max_iter=10, tol=1e-6):
     """
     Solves the distributionally robust optimization problem using a cJKO-inspired 
@@ -238,7 +238,9 @@ def solve_cjko(P_k, eps, c, d, rho, Y, S, max_iter=10, tol=1e-6):
 
 
 
-
+# ------------------------------
+#  Solve cJKO Wasserstein-check-chance-constrained update
+# ------------------------------
 def check_chance_constraints_cjko(Y, S, eta, X, P_k, P_0, eps, max_iter=10, tol=1e-6):
     """
     Enforces chance constraints under Wasserstein ambiguity by checking
@@ -380,7 +382,7 @@ def calculate_demand_satisfaction(Y, S, X, P):
     return (1 - violating_scenarios / total_scenarios) * 100  # as percentage
 
 
-# Step 7: Iterative Optimization Framework
+# Iterative Optimization Framework
 
 def optimize_facility_location(I, J, T, f, a, c, d, rho, P_0, eps, eta, q_t, max_iter=15):
     """
