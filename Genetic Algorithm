@@ -1,0 +1,74 @@
+def generate_initial_solution_ga(I, J, T, q_t, P_0, pop_size=50, generations=100, mutation_rate=0.1):
+    """
+    Generates an initial solution using a Genetic Algorithm (GA) for the facility location problem.
+    
+    Parameters:
+        I (int): Number of customers
+        J (int): Number of facilities
+        T (int): Number of time periods
+        q_t (array): Capacity per facility per time period
+        P_0 (array): Initial demand scenarios
+        pop_size (int): GA population size
+        generations (int): Number of generations
+        mutation_rate (float): Mutation rate
+
+    Returns:
+        X (array): Facility opening decisions
+        S (array): Storage levels
+        Y (array): Allocation decisions
+    """
+    def fitness(individual):
+        # Decode the individual into decision variables
+        X, S, Y = decode_solution(individual, J, T, I, q_t)
+
+        # Compute first-stage costs
+        Z = np.zeros_like(X)
+        Z[:, 0] = X[:, 0]
+        Z[:, 1:] = np.logical_and(X[:, 1:], np.logical_not(X[:, :-1])).astype(int)
+        inventory_cost = np.sum(a * (S - np.roll(S, shift=1, axis=1)))
+        term1 = np.sum(f * Z) + inventory_cost
+
+        # Compute expected second-stage cost over scenarios
+        expected_cost = np.mean([
+            np.sum(c * (Y * P_0[scenario][:, np.newaxis])) +
+            np.sum(rho[np.newaxis, :, np.newaxis] *
+                   np.maximum(0, Y * P_0[scenario][:, np.newaxis] - S[:, np.newaxis, :]))
+            for scenario in range(P_0.shape[0])
+        ])
+
+        # Total cost (negative for minimization)
+        cost = term1 + expected_cost
+        return -cost,
+
+    def decode_solution(individual, J, T, I, q_t):
+        # Extract and reshape decision variables from GA individual
+        X = np.random.choice([0, 1], size=(J, T), p=[0.5, 0.5])
+        for t in range(T):  # Ensure at least one facility is open per period
+            if np.sum(X[:, t]) == 0:
+                X[np.random.randint(0, J), t] = 1
+
+        # Storage levels and allocations
+        S = np.clip(np.array(individual[J * T:2 * J * T]).reshape(J, T), 3, 15) * X
+        Y = np.clip(np.array(individual[2 * J * T:]).reshape(J, I, T), 0, 1) * X[:, np.newaxis, :]
+        Y = np.minimum(Y, S[:, np.newaxis, :])
+        return X, S, Y
+
+    # Register GA components
+    creator.create("FitnessMin", base.Fitness, weights=(1.0,))
+    creator.create("Individual", list, fitness=creator.FitnessMin)
+    toolbox = base.Toolbox()
+    toolbox.register("attr_float", random.uniform, 0, 1)
+    toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float,
+                     n=(J * T + J * T + J * I * T))  # [X, S, Y]
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+    toolbox.register("mate", tools.cxTwoPoint)
+    toolbox.register("mutate", tools.mutUniformInt, low=0, up=1, indpb=mutation_rate)
+    toolbox.register("select", tools.selTournament, tournsize=3)
+    toolbox.register("evaluate", fitness)
+
+    # Run GA
+    pop = toolbox.population(n=pop_size)
+    algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=generations, verbose=False)
+    best_ind = tools.selBest(pop, k=1)[0]
+
+    return decode_solution(best_ind, J, T, I, q_t)
