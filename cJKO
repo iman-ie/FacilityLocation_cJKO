@@ -1,5 +1,9 @@
 #  Solve cJKO Wasserstein-constrained update
 # ------------------------------
+import numpy as np
+import scipy.optimize as opt
+import random
+
 def solve_cjko(P_k, eps, c, d, rho, Y, S, max_iter=10, tol=1e-6):
     """
     Solves the distributionally robust optimization problem using a cJKO-inspired 
