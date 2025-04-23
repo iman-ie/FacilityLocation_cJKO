@@ -1,5 +1,7 @@
 #  Compute Wasserstein Distance Constraint
 # ------------------------------
+import numpy as np
+
 def wasserstein_distance(P, P_k):
     """
     Computes the squared 2-Wasserstein distance between two sets of discrete probability distributions.
