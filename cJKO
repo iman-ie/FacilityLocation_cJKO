@@ -1,0 +1,126 @@
+#  Solve cJKO Wasserstein-constrained update
+# ------------------------------
+def solve_cjko(P_k, eps, c, d, rho, Y, S, max_iter=10, tol=1e-6):
+    """
+    Solves the distributionally robust optimization problem using a cJKO-inspired 
+    Wasserstein gradient descent update.
+
+    Parameters:
+        P_k (ndarray): Current demand distribution (num_scenarios x num_customers)
+        eps (float): Wasserstein ball radius
+        c (ndarray): Cost matrix (J x I x T)
+        d (ndarray): Demand weights (length I)
+        rho (ndarray): Penalty costs per customer (length I)
+        Y (ndarray): Allocation decisions (J x I x T)
+        S (ndarray): Storage decisions (J x T)
+        max_iter (int): Maximum number of iterations
+        tol (float): Tolerance for optimization convergence
+
+    Returns:
+        ndarray: Updated distribution P_{k+1} clipped to valid range
+    """
+    if P_k.ndim == 1:
+        P_k = P_k.reshape(1, -1)
+
+    num_scenarios, num_customers = P_k.shape
+    v = np.ones((num_customers,)) / np.sqrt(num_customers)  # Unit direction vector
+
+    best_P_k = P_k.copy()
+    best_second_stage_cost = -float('inf')
+    second_stage_costs = []
+
+    # --- Rotation matrix construction for Wasserstein direction ---
+    def build_rotation_matrix(alpha, d):
+        R = np.eye(d)
+        for l in range(d - 1):
+            i, j = l, l + 1
+            theta = alpha[l]
+            G = np.eye(d)
+            G[i, i] = np.cos(theta)
+            G[i, j] = -np.sin(theta)
+            G[j, i] = np.sin(theta)
+            G[j, j] = np.cos(theta)
+            R = R @ G
+        return R
+
+    for k in range(max_iter):
+        # === Define the objective (maximize worst-case cost) ===
+        def wasserstein_obj(params):
+            lambda_k = params[:num_scenarios]
+            alpha_k = params[num_scenarios:].reshape(num_scenarios, num_customers - 1)
+
+            P_new = np.zeros_like(P_k)
+            for i in range(num_scenarios):
+                R_i = build_rotation_matrix(alpha_k[i], num_customers)
+                direction = v @ R_i
+                P_new[i] = P_k[i] - lambda_k[i] * direction
+
+            P_new = np.clip(P_new, 0, None)  # Ensure valid demands
+
+            expected_cost = np.mean([
+                np.sum(c * (Y * P_new[scenario][:, np.newaxis])) +
+                np.sum(rho[np.newaxis, :, np.newaxis] *
+                       np.maximum(0, Y * P_new[scenario][:, np.newaxis] - S[:, np.newaxis, :]))
+                for scenario in range(num_scenarios)
+            ])
+            return expected_cost
+
+        # === Wasserstein distance constraint ===
+        def wasserstein_constraint(params):
+            lambda_k = params[:num_scenarios]
+            alpha_k = params[num_scenarios:].reshape(num_scenarios, num_customers - 1)
+
+            P_new = np.zeros_like(P_k)
+            for i in range(num_scenarios):
+                R_i = build_rotation_matrix(alpha_k[i], num_customers)
+                direction = v @ R_i
+                P_new[i] = P_k[i] - lambda_k[i] * direction
+
+            P_new = np.clip(P_new, 0, None)
+            dist = np.mean([np.linalg.norm(P_new[i] - P_k[i])**2 for i in range(num_scenarios)])
+            return eps - dist
+
+        # === Optimization step ===
+        constraints = [{'type': 'ineq', 'fun': wasserstein_constraint}]
+        initial_params = np.hstack([
+            np.random.uniform(0.5, 1.0, num_scenarios),
+            np.random.uniform(-np.pi, np.pi, num_scenarios * (num_customers - 1))
+        ])
+
+        result = opt.minimize(lambda x: -wasserstein_obj(x), initial_params,
+                              constraints=constraints, tol=tol, method='COBYLA')
+
+        lambda_k = result.x[:num_scenarios]
+        alpha_k = result.x[num_scenarios:].reshape(num_scenarios, num_customers - 1)
+
+        # === Apply the transport update to get new distribution ===
+        P_new = np.zeros_like(P_k)
+        for i in range(num_scenarios):
+            R_i = build_rotation_matrix(alpha_k[i], num_customers)
+            direction = v @ R_i
+            P_new[i] = P_k[i] - lambda_k[i] * direction
+        P_new = np.clip(P_new, 0, None)
+
+        # === Evaluate updated distribution ===
+        expected_cost = np.mean([
+            np.sum(c * (Y * P_new[scenario][:, np.newaxis])) +
+            np.sum(rho[np.newaxis, :, np.newaxis] *
+                   np.maximum(0, Y * P_new[scenario][:, np.newaxis] - S[:, np.newaxis, :]))
+            for scenario in range(num_scenarios)
+        ])
+        second_stage_costs.append(expected_cost)
+
+        if expected_cost > best_second_stage_cost:
+            best_second_stage_cost = expected_cost
+            best_P_k = P_new.copy()
+
+        dist = np.mean([np.linalg.norm(P_new[i] - P_k[i])**2 for i in range(num_scenarios)])
+        print(f"cJKO Iteration {k}: Second-Stage Cost = {expected_cost:.4f} Wasserstein Distance = {dist:.4f}")
+
+        P_k = P_new.copy()
+
+    print("\nUpdated Demand Scenarios from Best P_k:")
+    for i in range(min(6, best_P_k.shape[0])):
+        print(f"Scenario {i}: {best_P_k[i]}")
+
+    return np.clip(best_P_k, 0, np.max(best_P_k) * 1.2)
