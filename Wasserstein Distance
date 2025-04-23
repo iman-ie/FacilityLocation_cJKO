@@ -1,0 +1,17 @@
+#  Compute Wasserstein Distance Constraint
+# ------------------------------
+def wasserstein_distance(P, P_k):
+    """
+    Computes the squared 2-Wasserstein distance between two sets of discrete probability distributions.
+
+    Parameters:
+        P (ndarray): Updated demand distribution (shape: scenarios × customers).
+        P_k (ndarray): Previous demand distribution (shape: scenarios × customers).
+
+    Returns:
+        float: Mean squared 2-norm (Wasserstein distance squared) between corresponding scenarios.
+    """
+    return np.mean([
+        np.linalg.norm(P[i] - P_k[i], ord=2) ** 2
+        for i in range(P.shape[0])
+    ])
