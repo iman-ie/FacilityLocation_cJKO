@@ -19,20 +19,7 @@ def print_final_wasserstein_distance(P_0, best_P_k):
     print(f"\n📏 Final Wasserstein Distance between Initial (P_0) and Best Distribution (P_k): {distance:.4f}")
 
 
-def calculate_demand_satisfaction(Y, S, X, P):
-    """
-    Calculates the percentage of scenarios where all demands are satisfied without exceeding storage.
-    """
-    S_expanded = np.expand_dims(S, axis=1)  # (J, 1, T) → for broadcasting
-    feasible_Y = np.minimum(Y, S_expanded) * X[:, np.newaxis, :]  # Feasible allocation
 
-    # Count how many time periods violate the condition (Y > S)
-    violating_scenarios = np.sum([
-        np.any(feasible_Y[:, :, t] > S_expanded[:, :, t]) for t in range(S.shape[1])
-    ])
-    total_scenarios = P.shape[0]
-
-    return (1 - violating_scenarios / total_scenarios) * 100  # as percentage
 
 
 # Iterative Optimization Framework
