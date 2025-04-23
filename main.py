@@ -5,11 +5,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import random
 import time
-
 # Fix random seeds for reproducibility
 random.seed(42)
 np.random.seed(42)
-
 
 def print_final_wasserstein_distance(P_0, best_P_k):
     """
@@ -17,8 +15,6 @@ def print_final_wasserstein_distance(P_0, best_P_k):
     """
     distance = wasserstein_distance(P_0, best_P_k)
     print(f"\n📏 Final Wasserstein Distance between Initial (P_0) and Best Distribution (P_k): {distance:.4f}")
-
-
 
 
 
