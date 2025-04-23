@@ -1,3 +1,7 @@
+import numpy as np
+from deap import base, creator, tools, algorithms
+import random
+
 def generate_initial_solution_ga(I, J, T, q_t, P_0, pop_size=50, generations=100, mutation_rate=0.1):
     """
     Generates an initial solution using a Genetic Algorithm (GA) for the facility location problem.
