@@ -1,5 +1,8 @@
 #  Solve cJKO Wasserstein-check-chance-constrained update
 # ------------------------------
+import numpy as np
+import scipy.optimize as opt
+import random
 def check_chance_constraints_cjko(Y, S, eta, X, P_k, P_0, eps, max_iter=10, tol=1e-6):
     """
     Enforces chance constraints under Wasserstein ambiguity by checking
